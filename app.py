@@ -115,7 +115,7 @@ def run_quiz_chain(_docs, level):
         return json.loads(response.content.replace("```", "").replace("json", ""))
 
 
-@st.cache_resource(show_spinner="Searching Wikipedia...")
+# @st.cache_resource(show_spinner="Searching Wikipedia...")
 def wiki_search(term):
     retriever = WikipediaRetriever(top_k_results=5)
     docs = retriever.get_relevant_documents(term)
