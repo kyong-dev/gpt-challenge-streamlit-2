@@ -26,7 +26,7 @@ llm = None
 def format_docs(docs):
     return "\n\n".join(document.page_content for document in docs)
 
-@st.cache_resource(show_spinner="Making quiz...")
+# @st.cache_resource(show_spinner="Making quiz...")
 def run_quiz_chain(_docs, level):
     questions_prompt = ChatPromptTemplate.from_messages(
     [
