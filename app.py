@@ -26,7 +26,7 @@ llm = None
 def format_docs(docs):
     return "\n\n".join(document.page_content for document in docs)
 
-@st.cache_data(show_spinner="Making quiz...")
+@st.cache_resource(show_spinner="Making quiz...")
 def run_quiz_chain(_docs, level):
     questions_prompt = ChatPromptTemplate.from_messages(
     [
@@ -109,11 +109,13 @@ def run_quiz_chain(_docs, level):
     # output_parser = JsonOutputParser()
     chain = questions_chain | formatting_chain
     response = chain.invoke(_docs)
-    print("Response:", response)
-    return json.loads(response.content.replace("```", "").replace("json", ""))
+    if 'function_call' in response.additional_kwargs:
+        return json.loads(response.additional_kwargs['function_call']['arguments'].replace("```", "").replace("json", ""))
+    else:
+        return json.loads(response.content.replace("```", "").replace("json", ""))
 
 
-@st.cache_data(show_spinner="Searching Wikipedia...")
+@st.cache_resource(show_spinner="Searching Wikipedia...")
 def wiki_search(term):
     retriever = WikipediaRetriever(top_k_results=5)
     docs = retriever.get_relevant_documents(term)
@@ -158,6 +160,7 @@ function = {
 }
 
 api_key = None
+processing = False
 
 with st.sidebar:
     docs = None
@@ -166,17 +169,19 @@ with st.sidebar:
     choice = st.selectbox(
         "Level",
         (
+            None,
             "Hard",
             "Normal",
             "Easy"
         )
     )
-    # if choice == "File":
     topic = st.text_input("Search Wikipedia...")
+    search_button = st.button("Search")
 
     st.write("<a href='https://github.com/kyong-dev/gpt-challenge-streamlit-2'>https://github.com/kyong-dev/gpt-challenge-streamlit-2</a>", unsafe_allow_html=True)
 
-    if topic and api_key:
+    if search_button and topic and api_key and choice and not processing:
+        processing = True
         llm = ChatOpenAI(
             temperature=0.1,
             model="gpt-4o",
@@ -190,9 +195,12 @@ with st.sidebar:
             ],
         )
         docs = wiki_search(topic)
+        topic = None
     else:
         st.error("Please write down a topic and your OpenAI key.")
 
+if choice:
+    st.write(f"Level: {choice}")
 
 if not docs:
     st.markdown(
@@ -208,7 +216,6 @@ else:
     response = run_quiz_chain(docs, choice)
     with st.form("questions_form"):
         correct_count = 0
-        # response = json.loads(response.replace("```", "").replace("json", ""))
         questions = response["questions"]
         for idx, question in enumerate(questions):
             st.write(question["question"])
@@ -223,6 +230,7 @@ else:
                 correct_count += 1
             elif value is not None:
                 st.error("Wrong!")
+        processing = False
         submitted = st.form_submit_button("Submit")
         if submitted:
             st.write("Form submitted!")
